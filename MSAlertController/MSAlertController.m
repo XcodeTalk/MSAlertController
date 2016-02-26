@@ -10,6 +10,13 @@
 #import <QuartzCore/QuartzCore.h>
 #import <Accelerate/Accelerate.h>
 
+
+#define kActionHeight 50.0f
+#define kCancelHeight 50.0f
+#define kPadding 8.0f
+#define kCornerRadius 12.0f
+
+
 #pragma mark - UIImage Category
 @interface UIImage (Extension)
 
@@ -76,6 +83,11 @@
     return image;
 }
 
+/**
+ *  对图片模糊处理
+ *
+ *  @return 模糊图片
+ */
 - (UIImage *)bluredImage {
     uint32_t boxSize = 0.15 * 100;
     boxSize = boxSize - (boxSize % 2) + 1;
@@ -331,6 +343,8 @@ static NSDictionary *_defaultColors = nil;
 @property (strong, nonatomic) MSAlertAnimation *animation;
 @property (strong, nonatomic) UIButton *cancelButton;
 
+@property(nonatomic, strong)UIView *maskView; ///< 半透明遮罩 wangbin 2016.2.26 add
+
 // Views on Alert Controller
 @property (weak, nonatomic) IBOutlet UIImageView *imageView;
 @property (weak, nonatomic) IBOutlet UIView *backgroundView;
@@ -417,7 +431,7 @@ static CGFloat const kTextFieldWidth = 234.0f;
         self.preferredStyle = preferredStyle;
         self.enabledBlurEffect = YES;
         self.backgroundColor = [UIColor grayColor];
-        self.alpha = 0.5f;
+        self.alpha = 0.1f;
         self.alertBackgroundColor = [UIColor whiteColor];
         self.separatorColor = [UIColor colorWithRed:231.0f/255.0f green:231.0f/255.0f blue:233.0f/255.0f alpha:1.0f];
         
@@ -447,7 +461,7 @@ static CGFloat const kTextFieldWidth = 234.0f;
     
     self.view.frame = [UIScreen mainScreen].bounds;
     
-    self.tableView.layer.cornerRadius = 6.0f;
+    self.tableView.layer.cornerRadius = kCornerRadius; //6.0f;
     self.tableView.layer.masksToBounds = YES;
     self.tableView.backgroundColor = [UIColor clearColor];
     [self.tableView registerClass:[UITableViewCell class] forCellReuseIdentifier:kCellReuseIdentifier];
@@ -459,6 +473,12 @@ static CGFloat const kTextFieldWidth = 234.0f;
     }
     self.tableView.scrollEnabled = NO;
     self.tableViewContainer.backgroundColor = [UIColor clearColor];
+    
+    //wangbin 2016.2.26 add 初始化遮罩
+    self.maskView = [[UIView alloc] init];
+    self.maskView.frame = CGRectMake(0, 0, [UIScreen mainScreen].bounds.size.width, [UIScreen mainScreen].bounds.size.height);
+    self.maskView.backgroundColor = [UIColor colorWithRed:(40/255.0f) green:(40/255.0f) blue:(40/255.0f) alpha:1.0f];
+    self.maskView.alpha = 0.4;
 }
 
 - (void)dealloc {
@@ -470,7 +490,12 @@ static CGFloat const kTextFieldWidth = 234.0f;
     
     UIImage *screenshot = [UIImage screenshot];
     if (self.enabledBlurEffect) {
-        self.imageView.image = screenshot.bluredImage;
+        
+        //wangbin 2016.2.26 add 不要模糊图片，直接加层透明黑色蒙版
+        //self.imageView.image = screenshot.bluredImage;
+        self.imageView.image = screenshot;
+        [self.imageView addSubview:self.maskView];
+        
     } else {
         self.imageView.image = screenshot;
     }
@@ -542,7 +567,7 @@ static CGFloat const kTextFieldWidth = 234.0f;
     
     
     if (self.preferredStyle == MSAlertControllerStyleAlert) {
-        CGFloat tableViewHeight = self.actions.count * 44.0f;
+        CGFloat tableViewHeight = self.actions.count * kActionHeight; //44.0f;
         self.tableViewHeightConstraint.constant = tableViewHeight + headerHeight - 1.0f;
     } else {
         NSInteger actionCount = self.actions.count;
@@ -550,13 +575,13 @@ static CGFloat const kTextFieldWidth = 234.0f;
         if (cancelAction != nil) {
             actionCount--;
         }
-        CGFloat tableViewHeight = actionCount * 44.0f;
+        CGFloat tableViewHeight = actionCount * kActionHeight; //44.0f;
         if (cancelAction != nil) {
-            self.tableViewBottomSpaceConstraint.constant = 52.0f;
+            self.tableViewBottomSpaceConstraint.constant = kCancelHeight + kPadding;
             
             self.cancelButton = [UIButton buttonWithType:UIButtonTypeCustom];
             self.cancelButton.userInteractionEnabled = cancelAction.enabled;
-            self.cancelButton.layer.cornerRadius = 6.0f;
+            self.cancelButton.layer.cornerRadius = kCornerRadius; //6.0f;
             self.cancelButton.layer.masksToBounds = YES;
             [self.cancelButton setTitle:cancelAction.title forState:UIControlStateNormal];
             if (cancelAction.enabled) {
@@ -575,7 +600,7 @@ static CGFloat const kTextFieldWidth = 234.0f;
                                                                  toItem:nil
                                                               attribute:NSLayoutAttributeHeight
                                                              multiplier:1.0
-                                                               constant:44.0f]];
+                                                               constant:50.0f]];
             
             [self.tableViewContainer addConstraint:[NSLayoutConstraint constraintWithItem:self.cancelButton
                                                                   attribute:NSLayoutAttributeLeft
@@ -599,7 +624,7 @@ static CGFloat const kTextFieldWidth = 234.0f;
                                                                                    toItem:self.tableView
                                                                                 attribute:NSLayoutAttributeBottom
                                                                                multiplier:1.0
-                                                                                 constant:8.0f]];
+                                                                                 constant:kPadding]];
         }
         
         self.tableViewContainerHeightConstraint.constant = tableViewHeight + headerHeight + self.tableViewBottomSpaceConstraint.constant - 0.5f;
